@@ -517,6 +517,19 @@ class ScenarioEnvironmentManager:
             raise ScenarioEnvironmentException(f"Cannot check out commit: {commit}. "
                                                f"Docker error code: {err_code}.")
 
+    def _fetch_commits(self, commits: List[str]):
+        fetch_command = f"git fetch --no-tags origin {' '.join(commits)}"
+        err_code, output = self.container.exec_run(
+            self.command_template.format(command_to_execute=fetch_command),
+            privileged=False,
+            workdir=self.repository_work_dir,
+        )
+        if err_code != 0:
+            raise ScenarioEnvironmentException(
+                "Cannot fetch scenario commits. "
+                f"Docker error code: {err_code}, output: {output.decode('utf-8')}"
+            )
+
     def _setup_clean_local_branch_before_push(self):
         """
         Checks out the first (ie. chronologically newest) commit in the scenario and initiates a rebase of the last
@@ -550,6 +563,10 @@ class ScenarioEnvironmentManager:
             ScenarioEnvironmentException: If the checkout command fails.
             NotImplementedError: If an invalid scenario type is configured in self.scenario_type.
         """
+        commits_to_fetch = list(self.scenario['parents'])
+        if self.scenario.get('merge_commit_hash'):
+            commits_to_fetch.append(self.scenario['merge_commit_hash'])
+        self._fetch_commits(commits_to_fetch)
         self._checkout_commit(self.scenario['parents'][0])
         self._setup_agent_branch()
         if self.scenario_type is not ScenarioType.MERGE:
