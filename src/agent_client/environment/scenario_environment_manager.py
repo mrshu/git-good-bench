@@ -2,6 +2,7 @@ import copy
 import logging
 import os
 import re
+import shlex
 import subprocess
 from collections import deque
 from datetime import datetime
@@ -510,7 +511,7 @@ class ScenarioEnvironmentManager:
 
         Raises: ScenarioEnvironmentException: If the checkout command fails.
         """
-        checkout_command = f"git checkout {commit}"
+        checkout_command = f"git checkout {shlex.quote(self._validate_commit_ref(commit))}"
         err_code, output = self.container.exec_run(self.command_template.format(command_to_execute=checkout_command),
                                                    privileged=False, workdir=self.repository_work_dir)
         if err_code != 0:
@@ -518,7 +519,11 @@ class ScenarioEnvironmentManager:
                                                f"Docker error code: {err_code}.")
 
     def _fetch_commits(self, commits: List[str]):
-        fetch_command = f"git fetch --no-tags origin {' '.join(commits)}"
+        validated_commits = [self._validate_commit_ref(commit) for commit in commits]
+        fetch_command = (
+            "git fetch --no-tags origin "
+            + " ".join(shlex.quote(commit) for commit in validated_commits)
+        )
         err_code, output = self.container.exec_run(
             self.command_template.format(command_to_execute=fetch_command),
             privileged=False,
@@ -529,6 +534,14 @@ class ScenarioEnvironmentManager:
                 "Cannot fetch scenario commits. "
                 f"Docker error code: {err_code}, output: {output.decode('utf-8')}"
             )
+
+    @staticmethod
+    def _validate_commit_ref(commit: str) -> str:
+        if not re.fullmatch(r"[0-9a-fA-F]{7,40}", commit):
+            raise ScenarioEnvironmentException(
+                f"Scenario commit ref is not a hex object id: {commit}"
+            )
+        return commit
 
     def _setup_clean_local_branch_before_push(self):
         """

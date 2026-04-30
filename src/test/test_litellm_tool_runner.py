@@ -68,7 +68,7 @@ def test_litellm_runner_dispatches_resolve_tool_and_stops():
         completion_fn=completion_fn,
     ).run("system", "user")
 
-    assert result.completed is True
+    assert result.conflicts_cleared is True
     assert result.finish_reason == "all_conflicts_resolved"
     assert result.remaining_conflicts == 0
     assert result.usage == {
@@ -89,7 +89,7 @@ def test_litellm_runner_does_not_complete_when_final_tool_errors():
         ),
     ).run("system", "user")
 
-    assert result.completed is False
+    assert result.conflicts_cleared is False
     assert result.finish_reason == "tool_error"
     assert result.remaining_conflicts == 0
     assert result.tool_error == (
@@ -107,7 +107,7 @@ def test_litellm_runner_does_not_complete_when_model_stops_with_conflicts_left()
         completion_fn=lambda **kwargs: _response_without_tool_calls(),
     ).run("system", "user")
 
-    assert result.completed is False
+    assert result.conflicts_cleared is False
     assert result.finish_reason == "stopped_with_unresolved_conflicts"
     assert result.remaining_conflicts == 1
 

@@ -41,10 +41,22 @@ In `src/agent_client` we release an open source version of our baseline implemen
 the released version is not runnable, as we had to remove proprietary code. However, it contains all tool implementations, 
 our scenario environment management and evaluation implementation in addition to the prompts and context provided.
 
-## LiteLLM Merge Parity Runner
+## LiteLLM Merge Compatibility Runner
 This fork restores a runnable merge-conflict baseline path for parity checks with external benchmark adapters. The runner
-uses the public HuggingFace dataset rows, the original GitGoodBench environment setup and merge evaluator, and a LiteLLM
-tool-calling loop that can be pointed at OpenRouter or any LiteLLM-supported provider.
+is based on the public HuggingFace dataset rows and the released GitGoodBench merge tools, prompts, environment setup, and
+evaluator, plus the compatibility patches listed below. It uses a LiteLLM tool-calling loop that can be pointed at
+OpenRouter or any LiteLLM-supported provider.
+
+The released upstream baseline is documented as non-runnable after proprietary code removal, so this fork should be read
+as a patched compatibility runner rather than the original private baseline.
+
+| Area | Compatibility patch |
+|------|---------------------|
+| Docker environment | Mounts the source tree and repository folders so the released tool/evaluator code can run locally. |
+| Merge setup | Fetches parent and ground-truth merge commits before checkout/reset for shallow public clones. |
+| Tool state | Keeps current-conflict indexing aligned after earlier conflicts are resolved. |
+| Evaluation plumbing | Allows the released evaluator path to run without proprietary LLM judge dependencies for merge tasks. |
+| System packages | Installs `git-lfs` when needed by public test repositories. |
 
 Install dependencies with `uv`, provide an API key for the selected provider, and run the merge subset:
 
@@ -52,6 +64,7 @@ Install dependencies with `uv`, provide an API key for the selected provider, an
 uv sync
 export OPENROUTER_API_KEY=...
 uv run python -m src.agent_client.run_litellm_merge_parity \
+  --dataset-revision 086d113d9e584ad0dde7cd08a693b17546800f2d \
   --model openrouter/anthropic/claude-sonnet-4.5 \
   --limit 5 \
   --output-dir runs/litellm_merge
@@ -65,12 +78,14 @@ uv run python -m src.agent_client.run_litellm_merge_parity --dry-run --limit 3
 
 # Exercise the original Docker setup and evaluator with the ground-truth merge commit.
 uv run python -m src.agent_client.run_litellm_merge_parity \
+  --dataset-revision 086d113d9e584ad0dde7cd08a693b17546800f2d \
   --limit 1 \
   --mock-solver ground-truth \
   --output-dir runs/mock_ground_truth_limit1
 
 # Run one real OpenRouter-backed merge sample end to end.
 uv run python -m src.agent_client.run_litellm_merge_parity \
+  --dataset-revision 086d113d9e584ad0dde7cd08a693b17546800f2d \
   --task-ids alanjds_drf_nested_routers_merge_0001 \
   --model openrouter/anthropic/claude-sonnet-4.5 \
   --max-turns 30 \
@@ -78,10 +93,12 @@ uv run python -m src.agent_client.run_litellm_merge_parity \
 ```
 
 Each run writes `results.jsonl` and per-task transcripts under the selected output directory. The runner currently targets
-`sample_type == "merge"` only, because merge parity is the path needed by Harbor's GitGoodBench adapter review. It also
-writes `run_manifest.json` with the resolved HuggingFace dataset revision, dataset fingerprint, Docker image ID, tool
-schema hash, model parameters, and package versions. The file-commit-chain judge path still requires an LLM judge and is
-intentionally not used by this runner.
+`sample_type == "merge"` only, because merge parity is the path needed by Harbor's GitGoodBench adapter review. Use
+`is_solved` from the evaluator as the resolved-rate metric; the runner's `conflicts_cleared` field only means that the
+tool loop consumed the visible merge-conflict queue. It also writes `run_manifest.json` with the resolved HuggingFace
+dataset revision, dataset fingerprint, Docker image ID, tool schema hash, model parameters, package versions, runner git
+commit, dirty status, argv, lockfile hash, and the names of relevant configured provider environment variables. The
+file-commit-chain judge path still requires an LLM judge and is intentionally not used by this runner.
 
 ## Baseline Results
 Finally, in `src/notebooks` we provide the Jupyter notebooks in which we analyzed our benchmark, computed the statistics

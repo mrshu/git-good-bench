@@ -8,6 +8,8 @@ import json
 import logging
 import os
 import platform
+import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +40,7 @@ from src.data_processing_scripts.schemas import SampleDataRowV4
 
 DATASET_NAME = "JetBrains/git_good_bench-lite"
 DATASET_SPLIT = "train"
+DEFAULT_DATASET_REVISION = "086d113d9e584ad0dde7cd08a693b17546800f2d"
 DEFAULT_IMAGE = "tolindenba/ytsaurus:python-3.10"
 
 
@@ -143,9 +146,9 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset-split", default=DATASET_SPLIT)
     parser.add_argument(
         "--dataset-revision",
-        default=None,
+        default=DEFAULT_DATASET_REVISION,
         help=(
-            "Optional Hugging Face dataset git revision. The resolved commit "
+            "Hugging Face dataset git revision. The resolved commit "
             "is recorded in the run manifest."
         ),
     )
@@ -308,6 +311,13 @@ def _write_run_manifest(
             "litellm": _package_version("litellm"),
             "datasets": _package_version("datasets"),
         },
+        "runner": {
+            "argv": sys.argv,
+            "git_commit": _git_output(["rev-parse", "HEAD"]),
+            "git_status_short": _git_output(["status", "--short"]),
+            "lockfile_sha256": _file_sha256(_repo_root() / "uv.lock"),
+            "set_env_keys": _set_env_keys(),
+        },
     }
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
     return manifest_path
@@ -318,6 +328,42 @@ def _package_version(package_name: str) -> str | None:
         return importlib.metadata.version(package_name)
     except importlib.metadata.PackageNotFoundError:
         return None
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _git_output(args: list[str]) -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=_repo_root(),
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except Exception:
+        return None
+    return result.stdout.strip()
+
+
+def _file_sha256(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _set_env_keys() -> list[str]:
+    env_keys = (
+        "OPENROUTER_API_KEY",
+        "OPENAI_API_KEY",
+        "OPENAI_BASE_URL",
+        "OPENAI_API_BASE",
+        "LITELLM_API_KEY",
+        "LITELLM_API_BASE",
+    )
+    return [key for key in env_keys if key in os.environ]
 
 
 def _prepare_container(container) -> None:
@@ -447,10 +493,10 @@ def _run_sample(
         "is_solved": is_solved,
         "error": error,
         "execution_time_ms": int((time.time() - started_at) * 1000),
-        "runner": None
-        if runner_result is None
-        else {
-            "completed": runner_result.completed,
+            "runner": None
+            if runner_result is None
+            else {
+            "conflicts_cleared": runner_result.conflicts_cleared,
             "turns": runner_result.turns,
             "finish_reason": runner_result.finish_reason,
             "usage": runner_result.usage,

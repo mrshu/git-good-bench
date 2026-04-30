@@ -109,7 +109,7 @@ MERGE_TOOL_SCHEMAS: list[dict[str, Any]] = [
 
 @dataclass
 class LiteLLMToolRunnerResult:
-    completed: bool
+    conflicts_cleared: bool
     turns: int
     finish_reason: str | None
     transcript: list[dict[str, Any]]
@@ -180,12 +180,12 @@ class LiteLLMMergeToolRunner:
             tool_calls = assistant_message.get("tool_calls") or []
             if not tool_calls:
                 remaining_conflicts = self._remaining_conflicts()
-                completed = remaining_conflicts in (0, None)
+                conflicts_cleared = remaining_conflicts in (0, None)
                 return LiteLLMToolRunnerResult(
-                    completed=completed,
+                    conflicts_cleared=conflicts_cleared,
                     turns=turn,
                     finish_reason=finish_reason
-                    if completed
+                    if conflicts_cleared
                     else "stopped_with_unresolved_conflicts",
                     transcript=transcript,
                     usage=usage,
@@ -209,7 +209,7 @@ class LiteLLMMergeToolRunner:
                 remaining_conflicts = self._remaining_conflicts()
                 if not dispatch_result.success:
                     return LiteLLMToolRunnerResult(
-                        completed=False,
+                        conflicts_cleared=False,
                         turns=turn,
                         finish_reason="tool_error",
                         transcript=transcript,
@@ -220,7 +220,7 @@ class LiteLLMMergeToolRunner:
                     )
                 if remaining_conflicts == 0:
                     return LiteLLMToolRunnerResult(
-                        completed=True,
+                        conflicts_cleared=True,
                         turns=turn,
                         finish_reason="all_conflicts_resolved",
                         transcript=transcript,
@@ -231,7 +231,7 @@ class LiteLLMMergeToolRunner:
 
         remaining_conflicts = self._remaining_conflicts()
         return LiteLLMToolRunnerResult(
-            completed=False,
+            conflicts_cleared=False,
             turns=self._max_turns,
             finish_reason=finish_reason or "max_turns",
             transcript=transcript,
