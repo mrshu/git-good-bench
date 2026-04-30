@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import platform
+import shlex
 import subprocess
 import sys
 import time
@@ -510,9 +511,12 @@ def _run_sample(
 
 
 def _apply_ground_truth_solution(container, repository_work_dir: str, scenario: dict) -> None:
+    merge_commit = ScenarioEnvironmentManager._validate_commit_ref(
+        scenario["merge_commit_hash"]
+    )
     command = (
         "git merge --abort || true; "
-        f"git reset --hard {scenario['merge_commit_hash']}"
+        f"git reset --hard {shlex.quote(merge_commit)}"
     )
     err_code, output = container.exec_run(
         f'/bin/bash -c "{command}"',

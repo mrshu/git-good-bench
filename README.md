@@ -52,7 +52,7 @@ as a patched compatibility runner rather than the original private baseline.
 
 | Area | Compatibility patch |
 |------|---------------------|
-| Docker environment | Mounts the source tree and repository folders so the released tool/evaluator code can run locally. |
+| Docker environment | Mounts the runner's `agent_work_dir` at `/usr/code` so cloned repositories and released tool/evaluator code share the expected path. |
 | Merge setup | Fetches parent and ground-truth merge commits before checkout/reset for shallow public clones. |
 | Tool state | Keeps current-conflict indexing aligned after earlier conflicts are resolved. |
 | Evaluation plumbing | Allows the released evaluator path to run without proprietary LLM judge dependencies for merge tasks. |
@@ -76,7 +76,7 @@ Useful verification commands:
 # List the first public GitGoodBench Lite merge tasks without running Docker.
 uv run python -m src.agent_client.run_litellm_merge_parity --dry-run --limit 3
 
-# Exercise the original Docker setup and evaluator with the ground-truth merge commit.
+# Exercise the compatibility Docker setup and evaluator with the ground-truth merge commit.
 uv run python -m src.agent_client.run_litellm_merge_parity \
   --dataset-revision 086d113d9e584ad0dde7cd08a693b17546800f2d \
   --limit 1 \

@@ -603,7 +603,8 @@ class ScenarioEnvironmentManager:
         return unmerged_paths
 
     def _attempt_cherry_pick(self):
-        cherry_pick_command = f"git cherry-pick {self.scenario['cherry_commit']}"
+        cherry_commit = self._validate_commit_ref(self.scenario['cherry_commit'])
+        cherry_pick_command = f"git cherry-pick {shlex.quote(cherry_commit)}"
 
         err_code, output = self.container.exec_run(self.command_template.format(command_to_execute=cherry_pick_command),
                                                    privileged=False, workdir=self.repository_work_dir)
@@ -614,7 +615,10 @@ class ScenarioEnvironmentManager:
                 f"Could not initiate cherry-pick. No merge conflict occurred. Docker error code: {err_code}, output: {output.decode('utf-8')}.")
 
     def _attempt_merge(self):
-        participating_parent_commits = ' '.join(self.scenario['parents'][1:])
+        participating_parent_commits = ' '.join(
+            shlex.quote(self._validate_commit_ref(parent))
+            for parent in self.scenario['parents'][1:]
+        )
         merge_command = f"git merge {participating_parent_commits}"
 
         err_code, output = self.container.exec_run(self.command_template.format(command_to_execute=merge_command),
@@ -869,7 +873,11 @@ class ScenarioEnvironmentManager:
         return f'Successfully applied resolution to merge conflict. {len(self.unresolved_merge_conflicts)} remaining. You must now move on to the next conflict.'
 
     def view_diff_between_merge_conflict_commits_for(self, path: str):
-        view_diff = f'git diff {" ".join(self.scenario["parents"])} -- {path}'
+        parents = " ".join(
+            shlex.quote(self._validate_commit_ref(parent))
+            for parent in self.scenario["parents"]
+        )
+        view_diff = f"git diff {parents} -- {shlex.quote(path)}"
         err_code, output = self.container.exec_run(self.command_template.format(command_to_execute=view_diff),
                                                    privileged=False, workdir=self.repository_work_dir)
         if err_code != 0:
