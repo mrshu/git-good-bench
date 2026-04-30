@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import ast
 import json
 import os
@@ -247,7 +249,7 @@ class Evaluator:
         return response_agent_gt['evaluation_result'] == 'HISTORY-1' and response_gt_agent[
             'evaluation_result'] == 'HISTORY-2'
 
-    def _prompt_model_with(self, prompt: Chat):
+    def _prompt_model_with(self, prompt):
         """
         Abstraction wrapper for LLM backend communication.
 
@@ -257,14 +259,12 @@ class Evaluator:
         Returns:
             Any: The response from the language model after processing the given prompt.
         """
-        return self.llm_client.chat(
-            chat=prompt,
-            profile=LLM ..,
-            parameters={
-                LLMParameters.Temperature: Parameters.FloatValue(0),
-                LLMParameters.ResponseFormat: Parameters.JsonValue(self.response_schema),
-            }
-        )
+        if self.llm_client is None:
+            raise ScenarioEnvironmentException(
+                "File-commit-chain evaluation requires an LLM judge, but no "
+                "llm_client was configured. Merge evaluation does not use this path."
+            )
+        return self.llm_client.chat(prompt)
 
     def _build_git_history(self, commits):
         """

@@ -41,6 +41,48 @@ In `src/agent_client` we release an open source version of our baseline implemen
 the released version is not runnable, as we had to remove proprietary code. However, it contains all tool implementations, 
 our scenario environment management and evaluation implementation in addition to the prompts and context provided.
 
+## LiteLLM Merge Parity Runner
+This fork restores a runnable merge-conflict baseline path for parity checks with external benchmark adapters. The runner
+uses the public HuggingFace dataset rows, the original GitGoodBench environment setup and merge evaluator, and a LiteLLM
+tool-calling loop that can be pointed at OpenRouter or any LiteLLM-supported provider.
+
+Install dependencies with `uv`, provide an API key for the selected provider, and run the merge subset:
+
+```bash
+uv sync
+export OPENROUTER_API_KEY=...
+uv run python -m src.agent_client.run_litellm_merge_parity \
+  --model openrouter/anthropic/claude-sonnet-4.5 \
+  --limit 5 \
+  --output-dir runs/litellm_merge
+```
+
+Useful verification commands:
+
+```bash
+# List the first public GitGoodBench Lite merge tasks without running Docker.
+uv run python -m src.agent_client.run_litellm_merge_parity --dry-run --limit 3
+
+# Exercise the original Docker setup and evaluator with the ground-truth merge commit.
+uv run python -m src.agent_client.run_litellm_merge_parity \
+  --limit 1 \
+  --mock-solver ground-truth \
+  --output-dir runs/mock_ground_truth_limit1
+
+# Run one real OpenRouter-backed merge sample end to end.
+uv run python -m src.agent_client.run_litellm_merge_parity \
+  --task-ids alanjds_drf_nested_routers_merge_0001 \
+  --model openrouter/anthropic/claude-sonnet-4.5 \
+  --max-turns 30 \
+  --output-dir runs/openrouter_alanjds_merge_0001
+```
+
+Each run writes `results.jsonl` and per-task transcripts under the selected output directory. The runner currently targets
+`sample_type == "merge"` only, because merge parity is the path needed by Harbor's GitGoodBench adapter review. It also
+writes `run_manifest.json` with the resolved HuggingFace dataset revision, dataset fingerprint, Docker image ID, tool
+schema hash, model parameters, and package versions. The file-commit-chain judge path still requires an LLM judge and is
+intentionally not used by this runner.
+
 ## Baseline Results
 Finally, in `src/notebooks` we provide the Jupyter notebooks in which we analyzed our benchmark, computed the statistics
 presented in the HuggingFace dataset cards and our main results. 
@@ -75,4 +117,3 @@ If you found this software useful, used our datasets, or were inspired by our wo
     abstract = "Benchmarks for Software Engineering (SE) AI agents, most notably SWE-bench, have catalyzed progress in programming capabilities of AI agents. However, they overlook critical developer workflows such as Version Control System (VCS) operations. To address this issue, we present GitGoodBench, a novel benchmark for evaluating AI agent performance on Version Control System (VCS) tasks. GitGoodBench covers three core Git scenarios extracted from permissive open-source Python, Java, and Kotlin repositories. Our benchmark provides three datasets: a comprehensive evaluation suite (900 samples), a rapid prototyping version (120 samples), and a training corpus (17,469 samples). We establish baseline performance on the prototyping version of our benchmark using GPT-4o equipped with custom tools, achieving a 21.11{\%} solve rate overall. We expect GitGoodBench to serve as a crucial stepping stone toward truly comprehensive SE agents that go beyond mere programming."
 }
 ```
-

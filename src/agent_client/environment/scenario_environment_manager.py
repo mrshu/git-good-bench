@@ -400,7 +400,7 @@ class ScenarioEnvironmentManager:
         Raises:
             ScenarioEnvironmentException: If git-lfs setup fails.
         """
-        git_lfs_command = '/bin/bash -c "apt-get update && apt install git-lfs"'
+        git_lfs_command = '/bin/bash -c "git lfs version || (apt-get update && apt-get install -y git-lfs)"'
         err_code, output = self.container.exec_run(git_lfs_command, workdir=self.repository_work_dir, privileged=False)
         if err_code != 0:
             raise ScenarioEnvironmentException('Could not setup git LFS. This is needed to cleanly setup/teardown '

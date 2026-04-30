@@ -8,6 +8,9 @@ dependencies = [
     "docker>=7.1.0",
     "coverage>=7.6.4",
     "pandas>=2.2.3",
+    "pyarrow>=16.0.0",
+    "litellm>=1.67.0,<2",
+    "datasets>=2.20.0",
     "ytsaurus-client~=0.13.20",
     "ytsaurus-yson~=0.4.9",
     "matplotlib~=3.9.3",
@@ -15,4 +18,9 @@ dependencies = [
     "jupyterlab>=4.3.5",
     "seaborn>=0.13.2",
     "gitpython>=3.1.44",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
 ]

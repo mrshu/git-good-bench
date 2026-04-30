@@ -5,7 +5,7 @@ from typing import Dict
 from weakref import finalize
 
 import docker
-from docker.errors import APIError, ImageNotFound
+from docker.errors import APIError, ImageNotFound, NotFound
 from docker.types import Mount
 from docker.models.containers import Container
 
@@ -33,7 +33,12 @@ class DockerManager:
         self._stop_and_remove_container()
         self._clear_directory()
 
+    def cleanup(self):
+        self._cleanup_container()
+
     def _clear_directory(self):
+        if not os.path.isdir(self.agent_repo_dir):
+            return
         for filename in os.listdir(self.agent_repo_dir):
             file_path = os.path.join(self.agent_repo_dir, filename)
             try:
@@ -49,9 +54,17 @@ class DockerManager:
         If the container is in "running" state, it will be stopped and then removed.
         Otherwise, it simply removes the container.
         """
+        if self.container is None:
+            return
+        try:
+            self.container.reload()
+        except NotFound:
+            self.container = None
+            return
         if self.container.status == "running":
             self.container.stop()
         self.container.remove()
+        self.container = None
 
     def setup_image(self):
         """
@@ -151,10 +164,12 @@ class DockerManager:
             RuntimeError: If the container is not yet created, fails to start or exits immediately after starting.
         """
         try:
+            os.makedirs(self.agent_repo_dir, exist_ok=True)
+            mount_source = os.path.abspath(self.agent_repo_dir)
             self.container = self.client.containers.run(self.image, environment=self.env_vars, detach=True,
                                                     entrypoint="tail -f /dev/null",
                                                     mounts=[Mount(target='/usr/code',
-                                                    source='~/vcs-agent/agent_work_dir',
+                                                    source=mount_source,
                                                     type='bind')])
         except APIError as e:
             logging.error(f'Docker error occurred while running (create+start) the container: {e}')

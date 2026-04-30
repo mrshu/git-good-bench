@@ -238,8 +238,8 @@ class TerminalAccessToolImplementationProvider:
             Returns the current merge conflict that you must currently resolve. Will contain the path to the file in which the conflict was found,
             and the actual conflict.
         """
-        current_merge_conflict_index =  len(self.scenario_environment_manager.unresolved_merge_conflicts) - \
-            len(self.scenario_environment_manager.all_conflicts)
+        current_merge_conflict_index = len(self.scenario_environment_manager.all_conflicts) - \
+            len(self.scenario_environment_manager.unresolved_merge_conflicts)
         return self.scenario_environment_manager.view_conflict_at(current_merge_conflict_index, context_window_size)
 
     def view_merge_conflict_at(self,
