@@ -290,7 +290,7 @@ class TerminalAccessToolImplementationProvider:
         try:
             return self.scenario_environment_manager.view_file_at(relative_path_from_project_root)
         except ScenarioEnvironmentException as e:
-            return (f'Could not fetch file at {relative_path_from_project_root}.'
+            return (f'Could not fetch file at {relative_path_from_project_root}. '
                     f'The following error was raised: {str(e)}')
 
     def view_diff_for(self,
@@ -304,4 +304,7 @@ class TerminalAccessToolImplementationProvider:
             Allows you to view the difference between the parent commits which are being merged in this scenario,
             with respect to the file located at relative_path_from_project_root.
         """
-        return self.scenario_environment_manager.view_diff_between_merge_conflict_commits_for(relative_path_from_project_root)
+        try:
+            return self.scenario_environment_manager.view_diff_between_merge_conflict_commits_for(relative_path_from_project_root)
+        except ScenarioEnvironmentException as e:
+            return str(e)

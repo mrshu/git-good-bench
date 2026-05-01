@@ -123,6 +123,7 @@ class LiteLLMToolRunnerResult:
 class ToolDispatchResult:
     content: str
     success: bool
+    fatal: bool = True
 
 
 class LiteLLMMergeToolRunner:
@@ -207,7 +208,7 @@ class LiteLLMMergeToolRunner:
                     {"turn": turn, "tool_name": tool_name, "message": tool_message}
                 )
                 remaining_conflicts = self._remaining_conflicts()
-                if not dispatch_result.success:
+                if not dispatch_result.success and dispatch_result.fatal:
                     return LiteLLMToolRunnerResult(
                         conflicts_cleared=False,
                         turns=turn,
@@ -275,6 +276,14 @@ class LiteLLMMergeToolRunner:
                 content=f"Invalid JSON arguments for {tool_name}: {exc}",
                 success=False,
             )
+        if not isinstance(arguments, dict):
+            return ToolDispatchResult(
+                content=(
+                    f"Invalid JSON arguments for {tool_name}: "
+                    f"expected object, got {type(arguments).__name__}"
+                ),
+                success=False,
+            )
 
         arguments.setdefault("reason", "called by LiteLLM parity runner")
 
@@ -305,24 +314,22 @@ class LiteLLMMergeToolRunner:
                     success=True,
                 )
             if tool_name == "view_diff_for":
-                return ToolDispatchResult(
-                    content=self._tool_provider.view_diff_for(
+                return self._read_only_result(
+                    self._tool_provider.view_diff_for(
                         relative_path_from_project_root=str(
                             arguments["relative_path_from_project_root"]
                         ),
                         reason=str(arguments["reason"]),
-                    ),
-                    success=True,
+                    )
                 )
             if tool_name == "view_file_at":
-                return ToolDispatchResult(
-                    content=self._tool_provider.view_file_at(
+                return self._read_only_result(
+                    self._tool_provider.view_file_at(
                         relative_path_from_project_root=str(
                             arguments["relative_path_from_project_root"]
                         ),
                         reason=str(arguments["reason"]),
-                    ),
-                    success=True,
+                    )
                 )
             return ToolDispatchResult(content=f"Unknown tool: {tool_name}", success=False)
         except Exception as exc:
@@ -330,6 +337,15 @@ class LiteLLMMergeToolRunner:
                 content=f"Tool {tool_name} failed: {type(exc).__name__}: {exc}",
                 success=False,
             )
+
+    @staticmethod
+    def _read_only_result(content: str) -> ToolDispatchResult:
+        recoverable_prefixes = (
+            "Could not compute diff between",
+            "Could not fetch file at ",
+        )
+        success = not content.startswith(recoverable_prefixes)
+        return ToolDispatchResult(content=content, success=success, fatal=success)
 
     @staticmethod
     def _accumulate_usage(usage: dict[str, int], response: Any) -> None:
